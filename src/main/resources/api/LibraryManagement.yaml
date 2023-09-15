@@ -1,0 +1,244 @@
+openapi: 3.0.3
+info:
+  title: Private Library Management
+  description: |
+    The API provides synchronous access to manage a private library. the library can contain belletristic as well as
+    technical books.
+  version: 1.0.0
+servers:
+  - url: 'https'
+paths:
+
+  /books:
+    get:
+      description: Deliver all books of a library as a list
+      operationId: getAllBooks
+      responses:
+        200:
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookResponse'
+
+
+
+components:
+
+  schemas:
+
+    Author:
+      description: One author of a book. Authors can be managed independent of books.
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/AuthorShort"
+      properties:
+        shortBio:
+          description: Short biography of the author
+          type: string
+          minLength: 5
+          maxLength: 1024
+          example: |
+            Agatha Christie is one of the famous mystery authors in the 20th century. Her figures are famous and 
+            developed meanwhile some kind of their own live. You just know Miss Marple of St. Mary Mead or the famous
+            Belgian detective Hercule Poirot.
+        birthDate:
+          description: Date of birth of the according author
+          type: string
+          format: date
+          example: "1890-09-05"
+        dateOfDeath:
+          description: Date of death of the according author
+          type: string
+          format: date
+          example: "1976-09-12"
+
+    AuthorShort:
+      description: A short reference to the author - usually used in list and book overviews.
+      type: object
+      required:
+        - name
+      properties:
+        self:
+          description: Identifier of the according author.
+          type: string
+          format: uuid
+          example: 5f090fd9-20a5-4c89-96f7-599fda45f2da
+        name:
+          description: Family name of the author
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: Christie
+        givenName:
+          description: Given name of the author
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: Agatha
+
+    AuthorShortResponse:
+      description: Response to a request of an author in a short form
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AuthorShort'
+      required:
+        - self
+
+    AuthorResponse:
+      description: Response to a request of an author in full form
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Author'
+      required:
+        - self
+
+    Book:
+      description: |
+        The object describes a book which could be published in different forms. If the library contains the same book
+        in different means, the book appears here only ones. The book contains then multiple copies.
+      type: object
+      required:
+        - authors
+        - title
+        - publisher
+        - year
+        - copies
+      properties:
+        self:
+          description: |
+            Identifier of the book in the library independent of the according copy.
+          type: string
+          format: uuid
+          example: ae69c5cb-7c97-4d7b-8c86-fe7f5ae66f79
+        authors:
+          description:
+            Collection of authors of the according books, usually the authors are requested by their short form
+            If no author give for book - the author should refer to anonymous. If the list is longer than 10 authors
+            the list is closed with and others.
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/AuthorShort'
+        title:
+          description: Title of the book
+          type: string
+          example: "Hercule Poirot: The Complete Short Stories"
+        subtitle:
+          description: Subtitle of the book if there is one
+          type: string
+          example: Master pieces in miniature
+        publisher:
+          $ref: '#/components/schemas/Publisher'
+        year:
+          description: Year when the book was published, years are only given AC in Gregorian calendar
+          type: string
+          format: ^[1-2]{1}[0-9]{3}$
+          example: 2011
+        edition:
+          description: |
+            Edition means if the publisher has the book published before - here the information of the publisher
+            are taken
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: 2. Edition reworked
+        volume:
+          description: |
+            If the title is delivered in several volumes the according information is taken here. To make the management
+            easier, just a single information is given
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "2nd Volume from g-h"
+        copies:
+          description: Copies of the book available in the library
+          type: array
+          items:
+            $ref: '#/components/schemas/Copy'
+
+    BookResponse:
+      description: A book as response
+      allOf:
+        - $ref: '#/components/schemas/Book'
+      required:
+        - self
+
+    Copy:
+      description: |
+        The copy describes the actual copy of the book. A book in a library can have multiple copies e.g. an audiobook
+        and an electronic form. The copy contains additionally the location of the book.
+      type: object
+      required:
+        - kind
+      properties:
+        self:
+          description: Identifier of the copy
+          type: string
+          format: uuid
+          example: 0fb4e6f2-dd26-462c-b665-17b44b32a2be
+        kind:
+          description: Kind of the copy e.g. an e-book
+          type: string
+          enum:
+            - e-book pdf
+            - e-book kindl
+            - paperback
+            - hardcover
+            - audiobook
+          example: audiobook
+        location:
+          description:
+            The location can be given quite free. Locations of electronic are not necessary, but it might be helpful to
+            know the cloud provider of it e.g. Amazon
+          type: string
+          minLength: 2
+          maxLength: 254
+          example: Amazon
+        book:
+          $ref: '#/components/schemas/Reference'
+
+
+    Publisher:
+      description: |
+        Each book has a publisher. For th private usage the publisher is only given with a name. Longer descriptions of
+        if can be given later.
+      type: object
+      required:
+        - name
+      properties:
+        self:
+          description: |
+            Identifier of the according publisher
+          type: string
+          format: uuid
+          example: a18a3f00-b57c-4082-bf42-fa1d073f763d
+        name:
+          description: Name of the publisher as stated in the book
+          type: string
+          minLength: 2
+          maxLength: 101
+          example: HarperCollins
+        # Todo: add address
+
+    Reference:
+      description: General reference to an entity
+      type: object
+      properties:
+        id:
+          description: Identifier to which the reference points
+          type: string
+          format: uuid
+          example: ae69c5cb-7c97-4d7b-8c86-fe7f5ae66f79
+        url:
+          description: URL to the according reference so that it can be accessed directly
+          type: string
+          format: uri
+          example: https://librarymanagement/book/ae69c5cb-7c97-4d7b-8c86-fe7f5ae66f79
+
+
+
+
