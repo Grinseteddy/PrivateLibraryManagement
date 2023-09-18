@@ -12,21 +12,81 @@ paths:
   /books:
     get:
       description: Deliver all books of a library as a list
-      operationId: getAllBooks
+      operationId: getAllBooksBySomething
+      parameters:
+        - $ref: '#/components/parameters/BooksByAuthor'
+        - $ref: '#/components/parameters/BookByTitle'
+        - $ref: '#/components/parameters/BooksByLocation'
       responses:
         200:
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/BookResponse'
+          $ref: '#/components/responses/Books'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+
+
+
+
 
 components:
 
-  schemas:
+  parameters:
+    BooksByAuthor:
+      description: |
+        Searches for an author by his or her name or given name as wildcard
+        search
+      in: query
+      name: author
+      required: false
+      schema:
+        type: string
+        example: Christie
+    BooksByLocation:
+      description: |
+        Searches for a location as wildcard search
+      in: query
+      name: location
+      required: false
+      schema:
+        type: string
+        example: Sitting room
+    BookByTitle:
+      description: |
+        Searches for a title as wildcard search
+      in: query
+      name: title
+      required: false
+      schema:
+        type: string
+        example: Poirot
 
+  responses:
+    Books:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Book'
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Message'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Message'
+
+  schemas:
     Address:
       description: Address - here used for the publisher
       type: object
@@ -71,6 +131,8 @@ components:
             - Ordered
             - Received
           example: Received
+        kind:
+          example: audiobook
 
     Author:
       description: One author of a book. Authors can be managed independent of books.
@@ -263,11 +325,43 @@ components:
             - Interesting
             - Ordered
             - Received
+          example: Received
         asin:
           description: Amazon Standard Identification Number
           type: string
           pattern: ^/d{10}
           example: 0006513778
+        kind:
+          example: kindle
+
+    Message:
+      description: Message in error cases to explain better the error
+      type: object
+      required:
+
+      properties:
+        title:
+          description: Title of the message
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: Not found
+        description:
+          description: Description of the message
+          type: string
+          minLength: 2
+          maxLength: 5096
+          example: Books in "Sitting room" not found
+        severity:
+          description: Severity of the message
+          type: string
+          enum:
+            - fatal
+            - error
+            - normal
+            - information
+            - debug
+          example: normal
 
     Print:
       description: A copy of a book as printed exemplar e.g. a paperback
@@ -301,6 +395,8 @@ components:
           type: string
           pattern: ^/d{3}-/d{10}
           example: 978-0006513773
+        kind:
+          example: paperback
 
     Publisher:
       description: |
