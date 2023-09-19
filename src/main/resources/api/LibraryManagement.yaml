@@ -17,17 +17,68 @@ paths:
         - $ref: '#/components/parameters/BooksByAuthor'
         - $ref: '#/components/parameters/BookByTitle'
         - $ref: '#/components/parameters/BooksByLocation'
+        - $ref: '#/components/parameters/BooksByIsbn'
       responses:
         200:
-          $ref: '#/components/responses/Books'
+          $ref: '#/components/responses/BooksResponse'
         400:
           $ref: '#/components/responses/BadRequest'
         404:
           $ref: '#/components/responses/NotFound'
 
+  /book:
+    post:
+      description: Creates a new book with a new copy
+      operationId: createBook
+      requestBody:
+        $ref: '#/components/requestBodies/BookRequestWithoutId'
+      responses:
+        200:
+          $ref: '#/components/responses/BookReference'
+        400:
+          $ref: '#/components/responses/BadRequest'
 
+  /book/{libraryBookId}:
+    get:
+      description: Gets a single book by its library ID
+      operationId: getBookById
+      parameters:
+        - $ref: '#/components/parameters/BookId'
+      responses:
+        200:
+          $ref: '#/components/responses/SingleBookResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
+    put:
+      description: Changes a single book by its library ID
+      operationId: updateBookById
+      parameters:
+        - $ref: '#/components/parameters/BookId'
+      requestBody:
+        $ref: '#/components/requestBodies/BookRequestWithId'
+      responses:
+        200:
+          $ref: '#/components/schemas/Reference'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
 
-
+  /book/{libraryBookId}/copies:
+    get:
+      description: Get all copies of a particular book
+      operationId: getCopiesByBookId
+      parameters:
+        - $ref: '#/components/parameters/BookId'
+      responses:
+        200:
+          $ref: '#/components/responses/CopiesOfABook'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
 
 
 components:
@@ -43,6 +94,16 @@ components:
       schema:
         type: string
         example: Christie
+    BooksByIsbn:
+      description: |
+        Searches for books with wildcards by ISBN
+      in: query
+      name: isbn
+      required: false
+      schema:
+        type: string
+        pattern: ^(/d{10})|/d{3}-/d{10}$
+        example: 9780006513773
     BooksByLocation:
       description: |
         Searches for a location as wildcard search
@@ -61,16 +122,18 @@ components:
       schema:
         type: string
         example: Poirot
+    BookId:
+      description: |
+        Searches for a book by its library ID
+      in: path
+      name: bookLibraryId
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: ae69c5cb-7c97-4d7b-8c86-fe7f5ae66f79
 
   responses:
-    Books:
-      description: Successful operation
-      content:
-        application/json:
-          schema:
-            type: array
-            items:
-              $ref: '#/components/schemas/Book'
     BadRequest:
       description: Bad request
       content:
@@ -79,12 +142,68 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Message'
+
+    BooksResponse:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Book'
+
+    BookReference:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Reference'
+
+    CopiesOfABook:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              oneOf:
+                - $ref: '#/components/schemas/EBook'
+                - $ref: '#/components/schemas/AudioBook'
+                - $ref: '#/components/schemas/Print'
+
     NotFound:
       description: Not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Message'
+
+    SingleBookResponse:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Book'
+
+  requestBodies:
+    BookRequestWithoutId:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Book'
+    BookRequestWithId:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BookEntity'
+    Copy:
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/AudioBook'
+              - $ref: '#/components/schemas/EBook'
+              - $ref: '#/components/schemas/Print'
 
   schemas:
     Address:
@@ -123,6 +242,12 @@ components:
           type: string
           pattern: ^/d{10}
           example: 0006513778
+        kind:
+          description: Kind of the copy Audiobook
+          type: string
+          enum:
+            - Audiobook
+          example: Audiobook
         status:
           description: Status of the printed copy.
           type: string
@@ -131,8 +256,7 @@ components:
             - Ordered
             - Received
           example: Received
-        kind:
-          example: audiobook
+
 
     Author:
       description: One author of a book. Authors can be managed independent of books.
@@ -262,6 +386,7 @@ components:
         copies:
           description: Copies of the book available in the library
           type: array
+          minItems: 1
           items:
             oneOf:
               - $ref: '#/components/schemas/AudioBook'
@@ -273,8 +398,8 @@ components:
           format: binary
 
 
-    BookResponse:
-      description: A book as response
+    BookEntity:
+      description: A book as response or as particular request
       allOf:
         - $ref: '#/components/schemas/Book'
       required:
@@ -286,27 +411,17 @@ components:
         and an electronic form. The copy contains additionally the location of the book.
       type: object
       required:
-        - kind
+        - book
       properties:
         self:
           description: Identifier of the copy
           type: string
           format: uuid
           example: 0fb4e6f2-dd26-462c-b665-17b44b32a2be
-        kind:
-          description: Kind of the copy e.g. an e-book
-          type: string
-          enum:
-            - e-book pdf
-            - e-book kindle
-            - paperback
-            - hardcover
-            - audiobook
-          example: audiobook
         book:
           $ref: '#/components/schemas/Reference'
 
-    CopyResponse:
+    CopyEntity:
       description: Response of a copy
       allOf:
         - $ref: '#/components/schemas/Copy'
@@ -332,7 +447,12 @@ components:
           pattern: ^/d{10}
           example: 0006513778
         kind:
-          example: kindle
+          description: Kind of the ebook e.g. Kindle
+          type: string
+          enum:
+            - Pdf
+            - Kindle
+          example: Kindle
 
     Message:
       description: Message in error cases to explain better the error
@@ -388,15 +508,20 @@ components:
         isbn-10:
           description: ISBN of the printed exemplar
           type: string
-          pattern: ^/d{10}
+          pattern: ^/d{10}$
           example: 9780006513773
         isbn-13:
           description: ISBN of the printed exemplar
           type: string
-          pattern: ^/d{3}-/d{10}
+          pattern: ^/d{3}-/d{10}$
           example: 978-0006513773
         kind:
-          example: paperback
+          description: Kind of the copy
+          type: string
+          enum:
+            - Paperback
+            - Hardcover
+          example: Paperback
 
     Publisher:
       description: |
